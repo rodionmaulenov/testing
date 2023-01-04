@@ -5,7 +5,7 @@ from django.urls import include, path
 from store.views import BookViewSet
 
 router = SimpleRouter()
-router.register(r'books', BookViewSet, basename='books')
+router.register(r'book', BookViewSet, basename='books')
 
 urlpatterns = [
     path('', include(router.urls))
