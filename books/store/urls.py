@@ -1,14 +1,12 @@
 from rest_framework.routers import SimpleRouter
 
-from django.urls import include, path
-
-from store.views import BookViewSet
+from store.views import BookViewSet, UserBookRelationalView
 
 router = SimpleRouter()
 router.register(r'book', BookViewSet, basename='books')
+router.register(r'book_relation', UserBookRelationalView, basename='books_relation')
 
 urlpatterns = [
-    path('', include(router.urls))
 ]
 
-
+urlpatterns += router.urls
