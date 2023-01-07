@@ -1,4 +1,5 @@
-from django.db.models import Count, Case, When, Avg, Sum, F
+from django.contrib.auth.models import User
+from django.db.models import Count, Case, When, Sum, F, Prefetch
 from django.shortcuts import render
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -13,11 +14,20 @@ from store.serializers import BookSerializer, UserBookRelationalSerializer
 
 
 class BookViewSet(ModelViewSet):
-    queryset = Book.objects.all().annotate(
-            like_annotate=Count(Case(When(userbookrelational__like=True, then=1))),
-            rate_annotate=Avg('userbookrelational__rate'),
-            discount_annotate=Sum((F('price') * F('discount')) / 100)
-        ).order_by('id')
+    queryset = Book.objects.all().defer(
+        'owner__is_superuser',
+        'owner__password',
+        'owner__last_login',
+        'owner__email',
+        'owner__is_staff',
+        'owner__is_active',
+        'owner__date_joined'
+    ).annotate(
+        like_annotate=Count(Case(When(userbookrelational__like=True, then=1))),
+        discount_annotate=Sum((F('price') * F('discount')) / 100),
+    ).select_related('owner').prefetch_related(
+        Prefetch('readers', queryset=User.objects.only('first_name', 'last_name'))
+    ).order_by('id')
     serializer_class = BookSerializer
     permission_classes = [IsOwnerOrIsStaffOrReadOnly]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -45,4 +55,3 @@ class UserBookRelationalView(UpdateModelMixin,
 
 def auth(request):
     return render(request, 'oauth.html')
-

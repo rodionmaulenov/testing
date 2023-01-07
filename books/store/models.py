@@ -13,6 +13,7 @@ class Book(models.Model):
 
     readers = models.ManyToManyField(User, through='UserBookRelational',
                                      related_name='books')
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=None, null=True)
 
     def __str__(self):
         return f"Id: {self.pk}, name: {self.name}"
@@ -35,3 +36,9 @@ class UserBookRelational(models.Model):
 
     def __str__(self):
         return f"Id {self.pk}: Book - {self.book.name}: rate - {self.get_rate_display()}"
+
+    def save(self, *args, **kwargs):
+        from store.logic import get_book_rate
+        super().save(*args, **kwargs)
+        get_book_rate(self.book)
+

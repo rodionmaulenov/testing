@@ -1,8 +1,10 @@
 import json
 
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Count, Case, When, Avg, Sum, F
+from django.db.models import Count, Case, When, Sum, F
 from django.urls import reverse
 
 from rest_framework import status
@@ -30,13 +32,16 @@ class ApiTestCase(APITestCase):
 
         self.books = Book.objects.all().annotate(
             like_annotate=Count(Case(When(userbookrelational__like=True, then=1))),
-            rate_annotate=Avg('userbookrelational__rate'),
             discount_annotate=Sum((F('price') * F('discount')) / 100)
         ).order_by('id')
 
     def test_get_list(self):
         url = reverse('books-list')
-        response = self.client.get(url)
+
+        with CaptureQueriesContext(connection) as con:
+            response = self.client.get(url)
+        self.assertEqual(2, len(con))
+
         serializer_data = BookSerializer(self.books, many=True).data
         self.assertEqual(status.HTTP_200_OK, response.status_code)
         self.assertEqual(serializer_data, response.data)
@@ -54,7 +59,6 @@ class ApiTestCase(APITestCase):
         url = reverse('books-list')
         books = Book.objects.filter(id__in=[self.book.id, self.book1.id]).annotate(
             like_annotate=Count(Case(When(userbookrelational__like=True, then=1))),
-            rate_annotate=Avg('userbookrelational__rate'),
             discount_annotate=Sum((F('price') * F('discount')) / 100)
         ).order_by('id')
         response = self.client.get(url, data={'search': 'book'})
@@ -65,7 +69,6 @@ class ApiTestCase(APITestCase):
     def test_get_ordering(self):
         books = Book.objects.filter(id__in=[self.book.id, self.book1.id, self.book2.id]).annotate(
             like_annotate=Count(Case(When(userbookrelational__like=True, then=1))),
-            rate_annotate=Avg('userbookrelational__rate'),
             discount_annotate=Sum((F('price') * F('discount')) / 100)
         ).order_by('id')
         url = reverse('books-list')
@@ -77,7 +80,6 @@ class ApiTestCase(APITestCase):
     def test_get_minus_ordering(self):
         books = Book.objects.filter(id__in=[self.book.id, self.book1.id, self.book2.id]).annotate(
             like_annotate=Count(Case(When(userbookrelational__like=True, then=1))),
-            rate_annotate=Avg('userbookrelational__rate'),
             discount_annotate=Sum((F('price') * F('discount')) / 100)
         ).order_by('-id')
         url = reverse('books-list')
@@ -203,9 +205,8 @@ class ApiTestCase(APITestCase):
         response = self.client.get(url)
         self.assertEqual(status.HTTP_200_OK, response.status_code)
         self.assertEqual(serializer_data, response.data)
-        self.assertEqual(serializer_data.get('like_method'), 2)
         self.assertEqual(serializer_data.get('like_annotate'), 2)
-        self.assertEqual(serializer_data.get('rate_annotate'), '3.00')
+
 
 
 class UserBookRelationalTestCase(APITestCase):
